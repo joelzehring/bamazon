@@ -17,7 +17,7 @@ var connection = mysql.createConnection({
 
 connection.connect(function(err) {
   if (err) throw err;
-  console.log("connected as id " + connection.threadId);
+  console.log("Welcome to Bamazon!\nConnected as id " + connection.threadId);
   afterConnection();
 });
 
@@ -27,12 +27,51 @@ function afterConnection() {
     // Loop through all inventory items and print to console ids, names, and prices
     for (var i of res) {
       console.log(`
-      Item ID#: ${i.item_id}
-      Name: ${i.product_name}
-      Price: ${i.price}
+      ----------
+      | Item ID#: ${i.item_id}
+      | Name: ${i.product_name}
+      | Price: ${i.price}
+      ----------
       `
       );
     }
-    connection.end();
+
+    inquirer
+      .prompt([
+        {
+          type: "input",
+          message: "What would you like to buy?",
+          name: "userItem"
+        },
+        {
+          type: "input",
+          message: "How many would you like to buy?",
+          name: "userQuantity"
+        }
+      ])
+      .then(function(response) {
+        var userItem = response.userItem;
+
+        var dbItem = res.find( ({item_id}) => item_id == userItem);
+
+        // complete transaction
+        if (dbItem.stock_quantity >= response.userQuantity) {
+          var total = dbItem.price * response.userQuantity;
+          var query = connection.query(
+            "UPDATE products SET ? WHERE ?",
+            [
+              {stock_quantity: dbItem.stock_quantity - response.userQuantity},
+              {item_id: userItem}
+            ],
+            function(err, updateRes) {
+              if (err) throw err;
+              console.log(`Your order for ${dbItem.product_name} has been placed!\nAmount due ${total}.`);
+            }
+          );
+        } else {
+          console.log("Insufficient quanitity!");
+        }
+        connection.end();
+      });
   });
 }
